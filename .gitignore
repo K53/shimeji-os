@@ -1,0 +1,4 @@
+*/target
+.DS_Store
+disk.img
+OVMF_VARS.fd
