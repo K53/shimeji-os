@@ -5,7 +5,6 @@
 #[macro_use]
 extern crate alloc;
 
-
 use core::arch::asm;
 use core::mem;
 use alloc::slice;
@@ -44,19 +43,13 @@ fn efi_main(_image: Handle, mut system_table: SystemTable<Boot>) -> Status {
         mem::transmute(elf_entry)
     };
     entry_point();
-
-    boot_services.stall(10_000_000);
-
-    system_table.stdout().reset(false).unwrap();
-
-    system_table.runtime_services()
-        .reset(ResetType::Shutdown, Status::SUCCESS, None);
+    system_table.runtime_services().reset(ResetType::Shutdown, Status::SUCCESS, None);
 }
 
 fn get_memory_map(boot_services: &BootServices) {
     let map_size = boot_services.memory_map_size().map_size;
     let mut memmap_buf = vec![0; map_size * 8];
-    log::info!("buffer size: {}", map_size);
+    // log::info!("buffer size: {}", map_size);
     let (_map_key, desc_itr) = boot_services.memory_map(&mut memmap_buf).unwrap();
     let descriptors = desc_itr.copied().collect::<Vec<_>>();
     // descriptors.iter().for_each(|descriptor| {
@@ -71,16 +64,18 @@ fn open_directory(_image: Handle, boot_services: &BootServices) -> Directory {
     let loaded_image = boot_services.handle_protocol::<LoadedImage>(_image).unwrap().get(); //handle_protocolは非推奨 後で変える
     let device = unsafe{(*loaded_image).device()};
     let file_system = boot_services.handle_protocol::<SimpleFileSystem>(device).unwrap().get();
-    let mut root_dir = unsafe{(*file_system).open_volume().unwrap()};
-    root_dir
+    unsafe {
+        (*file_system).open_volume().unwrap()
+    }
 }
 
 fn open_file(root_dir: &mut Directory) -> RegularFile {
     let mut cstr_buf = [0u16; 32];
     let cstr_file_name = CStr16::from_str_with_buf("kernel.elf", &mut cstr_buf).unwrap();
     let file_handle = root_dir.open(cstr_file_name, FileMode::Read, FileAttribute::empty()).unwrap();
-    let mut file = unsafe {RegularFile::new(file_handle)};
-    file
+    unsafe {
+        RegularFile::new(file_handle)
+    }
 }
 
 fn load_elf(boot_services: &BootServices, buf: Vec<u8>) -> usize {
