@@ -84,13 +84,13 @@ fn load_elf(boot_services: &BootServices, buf: Vec<u8>) -> usize {
     let mut dest_start = usize::MAX;
     let mut dest_end = 0;
     for ph in elf.program_headers.iter() {
-        log::info!("Program header: {} {} {} {}",program_header::pt_to_str(ph.p_type),ph.p_offset,ph.p_vaddr,ph.p_memsz);
+        log::info!("Program header: {} {} {} {} {}",program_header::pt_to_str(ph.p_type),ph.p_offset,ph.p_vaddr,ph.p_paddr,ph.p_memsz);
 
         if ph.p_type != program_header::PT_LOAD {
             continue;
         }
-        dest_start = dest_start.min(ph.p_vaddr as usize); // Calculate the first memory address of the PT_LOAD binary section over the all binary sections
-        dest_end = dest_end.max(ph.p_vaddr + ph.p_memsz); // Calculate the last memory address of the PT_LOAD binary section over the all binary sections
+        dest_start = dest_start.min(ph.p_paddr as usize); // Calculate the first memory address of the PT_LOAD binary section over the all binary sections
+        dest_end = dest_end.max(ph.p_paddr + ph.p_memsz); // Calculate the last memory address of the PT_LOAD binary section over the all binary sections
     }
 
     boot_services.allocate_pages(AllocateType::Address(dest_start), MemoryType::LOADER_DATA,(dest_end as usize - dest_start as usize + EFI_PAGE_SIZE - 1) / EFI_PAGE_SIZE).unwrap();
@@ -100,7 +100,7 @@ fn load_elf(boot_services: &BootServices, buf: Vec<u8>) -> usize {
             continue;
         }
         let dest = unsafe {
-            slice::from_raw_parts_mut(ph.p_vaddr as *mut u8, ph.p_memsz as usize)
+            slice::from_raw_parts_mut(ph.p_paddr as *mut u8, ph.p_memsz as usize)
         };
         dest[..(ph.p_filesz as usize)].copy_from_slice(&buf[(ph.p_offset as usize)..(ph.p_offset as usize + ph.p_filesz as usize)]);
         dest[(ph.p_filesz as usize)..].fill(0);
